@@ -1,0 +1,7 @@
+try num and float  
+
+GetToken( gToken ) ;
+  while ( JudgeNum( gToken ) ) {
+    cout << "is Num" << endl ;
+    GetToken( gToken ) ;
+  }

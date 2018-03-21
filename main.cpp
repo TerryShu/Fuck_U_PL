@@ -67,32 +67,26 @@ double Factor() ;
 int main() {
   // cin >> gTestNum ;
 
-  GetToken( gToken ) ;
-  while ( JudgeNum( gToken ) ) {
-    cout << "is Num" << endl ;
-    GetToken( gToken ) ;
-  }
-
-  /*while ( !gQuit ) {
+  while ( !gQuit ) {
     try {
       Command() ;
     } // try
     catch ( Error_type error ) {
       if ( error == UNRECOGNIZED ) {
-        cout << "gToken[ gFirstUnknow ]" ;
+        cout << "UNRECOGNIZED\n" ;
       } // if
       else if ( error == UNDEFINED ) {
-        cout << "UNDEFINED" ;
+        cout << "UNDEFINED\n" ;
       } // else if
       else if ( error == UNEXPECTED ) {
-        cout << "UNEXPECTED" ;
+        cout << "UNEXPECTED\n" ;
       } // else if
       else if ( error == QUIT ) {
         cout << "> Program exits..." ;
         return 0 ;
       } // else if
     } // catch
-  } // while*/
+  } // while
 
 } // main()
 
@@ -277,10 +271,21 @@ void Command() {
 
 
   if ( JudgeIDENT( gToken ) ) {
-    TakeToken() ; // get the IDENT
+    TakeToken() ; // get the token(IDENT)
     if( strlen( gToken ) == 2 && gToken[0] == ':' && gToken[1] == '=' ) {
+      TakeToken() ; // get the token(":=")
 
-    } // if get ':='
+      if ( JudgeArithExp( gToken ) ) {
+        ArithExp() ; // DO <ArithExp>
+      }  // if
+
+    } // if get ':=' and do <ArithExp>
+    else if ( JudgeIDlessArithExpOrBexp( gToken ) ) {
+      cout << "is JudgeIDlessArithExpOrBexp" << endl ;
+    } // else if <IDlessArithExpOrBexp>
+    else {
+      throw UNRECOGNIZED ;
+    } // else
   } // if IDENT ( ':=' <ArithExp> | <IDlessArithExpOrBexp> ) ';'
   else if ( gToken[0] == '-' ||  gToken[0] == '+' || isdigit( gToken[0] )
             || gToken[0] == '.' || gToken[0] == '(' ) {
@@ -359,7 +364,49 @@ bool JudgeFloat( char Token[50] ) {
   if ( correct == length ) return true ;
 
   return false ;
-} // JudgeFloat
+} // JudgeFloat()
+
+bool JudgeArithExp( char Token[50] ) {
+  if ( JudgeTerm( Token ) ) return true ;
+
+  return false ;
+} // JudgeArithExp()
+
+bool JudgeTerm( char Token[50] ) {
+  if ( JudgeFactor( Token ) ) return true ;
+
+  return false ;
+} // JudgeTerm()
+
+bool JudgeFactor( char Token[50] ) {
+  if ( JudgeIDENT( Token ) ) {
+    return true ;
+  } // IDENT
+  else if ( ( strlen( Token ) == 1 ) && ( Token[0] == '+' || Token[0] == '-' ) ) {
+    if ( JudgeNum( gPeekToken ) ) {
+      return true ;
+    } // if case : +2 -3
+    else {
+      return false ;
+    } // else +a -b  return error
+  } // [ SIGN ] NUM
+  else if ( JudgeNum( Token ) ) {
+    return true ;
+  } // else if Just NUM no sign case: 1 28
+  else if ( ( strlen( Token ) == 1 ) && Token[0] == '(' ) {
+    return true ;
+  } // '(' <ArithExp> ')'
+  else {
+    return false ;
+  } // else
+
+  return false ;
+
+} // JudgeFactor()
+
+bool JudgeIDlessArithExpOrBexp( char Token[50] ) {
+  return true ;
+} // JudgeIDlessArithExpOrBexp()
 
 void ReadAfterError() {
   char aChar ;
@@ -415,13 +462,16 @@ double NOT_ID_StartFactor() {
 
 
 double ArithExp() {
+  cout << gToken <<"\bIs ArithExp" << endl ;
   return 0;
 } // ArithExp()
 
 double Term() {
+  cout << gToken <<"\bIs Term" << endl ;
   return 0;
 } // Term()
 
 double Factor() {
+  cout << gToken <<"\bIs Factor" << endl ;
   return 0;
 } // Factor()
