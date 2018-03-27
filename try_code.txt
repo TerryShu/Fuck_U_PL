@@ -5,3 +5,6 @@ GetToken( gToken ) ;
     cout << "is Num" << endl ;
     GetToken( gToken ) ;
   }
+
+
+cout << fixed << setprecision( 3 ) <<
