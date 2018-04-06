@@ -10,7 +10,7 @@
 using namespace std;
 
 // ======================Data Struct==============================
-enum Error_type{ UNRECOGNIZED, UNDEFINED, UNEXPECTED, QUIT };
+enum Error_type{ UNRECOGNIZED, UNDEFINED, UNEXPECTED, ERROR };
 
 struct Identify_Data{
   string identify_Name ;
@@ -25,7 +25,7 @@ string gNowToken ;
 string gPeekToken ;
 vector<Identify_Data> gId ;
 int gTestNum = 0 ;
-int gFirstUnknow = -1 ;
+bool gIsBoolOP = false ;
 bool gQuit = false ;
 bool gIsFloat = false ;
 char gUnknowChar ;
@@ -55,23 +55,13 @@ bool JudgeNum( string Token ) ;
 bool JudgeFloat( string Token ) ;
 bool JudgeInt( string Token ) ;
 bool IsQuit( string Token ) ;
-bool JudgeFactor( string Token ) ;
-bool JudgeTerm( string Token ) ;
-bool JudgeArithExp( string Token ) ;
-bool Judge_NOT_ID_StartFactor( string Token ) ;
-bool Judge_NOT_ID_StartTerm( string Token ) ;
-bool Judge_NOT_ID_StartArithExp( string Token ) ;
-bool Judge_NOT_ID_StartArithExpOrBexp( string Token ) ;
-bool JudgeBooleanOprator( string Token ) ;
-bool JudgeIDlessArithExpOrBexp( string Token ) ;
-void JudgeUnrecognizedChar() ;
 // ===============================================================
 
 // =======================recursive===============================
 void Command() ;
 double IDlessArithExpOrBexp() ;
-void BooleanOprator() ;
-void NOT_ID_StartArithExpOrBexp() ;
+string BooleanOprator() ;
+double NOT_ID_StartArithExpOrBexp() ;
 double NOT_ID_StartArithExp() ;
 double NOT_ID_StartTerm() ;
 double NOT_ID_StartFactor() ;
@@ -82,11 +72,11 @@ double Factor() ;
 
 int main() {
 
-  // cin >> gTestNum ;
+  //cin >> gTestNum ;
   while ( !gQuit ) {
+    InitializeState() ;
     try {
       Command() ;
-      InitializeState() ;
     } // try
     catch ( Error_type error ) {
       ReadAfterError() ;
@@ -99,13 +89,14 @@ int main() {
       else if ( error == UNEXPECTED ) {
         cout << "Unexpected token : '" << gNowToken << "'" << endl ;
       } // else if
-      else if ( error == QUIT ) {
-        cout << "> Program exits..." ;
+      else if ( error == ERROR ) {
+        cout << "Error" << endl ;
         return 0 ;
       } // else if
     } // catch
   } // while
 
+  cout << "> Program exits..." << endl ;
 } // main()
 
 string GetToken() {
@@ -197,6 +188,8 @@ void InitializeState() {
   gPeekToken.clear() ;
   gIsFloat = false ;
   gQuit = false ;
+  gIsBoolOP = false ;
+  gUnknowChar = '\0' ;
 } // InitializeState()
 
 string SpecialToken( char aChar, string Token ) {
@@ -276,17 +269,30 @@ bool IsQuit( string Token ) {
 } // IsQuit()
 
 void Command() {
-
+  cout << "<" ;
   gNowToken = GetToken() ;
-
+  double return_ans ;
   if ( IsQuit( gNowToken ) ) {
-    throw QUIT ;
+    gQuit = true ;
   } // if quit
   else if ( JudgeIDENT( gNowToken ) ) {
     cout << "ID" << endl ;
   } // if IDENT ( ':=' <ArithExp> | <IDlessArithExpOrBexp> ) ';'
   else if ( !JudgeIDENT( gNowToken ) ) {
-    NOT_ID_StartArithExpOrBexp() ;
+    return_ans = NOT_ID_StartArithExpOrBexp() ;
+    if ( !gIsBoolOP ) {
+
+      if ( gIsFloat ) {
+          if ( return_ans > -0.001 && return_ans < 0 )
+            cout << fixed << setprecision( 3 ) << "0.000" << endl ;
+          else
+            cout << fixed << setprecision( 3 ) << return_ans << endl ;
+      } // if
+      else {
+        cout << (int)return_ans << endl ;
+      } // else
+
+    } // if
   } // else if <NOT_IDStartArithExpOrBexp>
   else {
     throw UNEXPECTED ;
@@ -383,8 +389,53 @@ void JudgeUnrecognizedChar() {
 
 } // JudgeUnrecognizedChar()
 
-void NOT_ID_StartArithExpOrBexp() {
+double NOT_ID_StartArithExpOrBexp() {
   double return_ans = NOT_ID_StartArithExp() ;
+
+  if ( gNowToken.empty() ) {
+    gNowToken = GetToken() ;
+  } // if
+
+  string boolOperator = BooleanOprator() ;
+  if ( boolOperator != "Not_boolOP" ) {
+    double arithexp_return = ArithExp() ;
+    gIsBoolOP = true ;
+
+    if ( ( ( return_ans - arithexp_return ) <= 0.00011 && ( return_ans > arithexp_return ) ) ||
+         ( ( arithexp_return - return_ans ) <= 0.00011 && ( arithexp_return > return_ans ) )  ) {
+
+      return_ans = arithexp_return ;
+
+    } // if
+
+    if ( boolOperator == "=" ) {
+      if ( return_ans == arithexp_return ) cout << "true" << endl ;
+      else cout << "false" << endl ;
+    } // if "="
+    else if ( boolOperator == "<>" ) {
+      if ( return_ans != arithexp_return ) cout << "true" << endl ;
+      else cout << "false" << endl ;
+    } // else if "<>"
+    else if ( boolOperator == ">" ) {
+      if ( return_ans > arithexp_return ) cout << "true" << endl ;
+      else cout << "false" << endl ;
+    } // else if ">"
+    else if ( boolOperator == "<" ) {
+      if ( return_ans < arithexp_return ) cout << "true" << endl ;
+      else cout << "false" << endl ;
+    } // else if "<"
+    else if ( boolOperator == ">=" ) {
+      if ( return_ans >= arithexp_return ) cout << "true" << endl ;
+      else cout << "false" << endl ;
+    } // else if ">="
+    else if ( boolOperator == "<=" ) {
+      if ( return_ans <= arithexp_return ) cout << "true" << endl ;
+      else cout << "false" << endl ;
+    } // else if "<="
+
+  } // if [ <BooleanOperator> <ArithExp> ]
+
+  return return_ans ;
 
 } // NOT_ID_StartArithExpOrBexp()
 
@@ -392,33 +443,120 @@ double IDlessArithExpOrBexp() {
   return 0 ;
 } // IDlessArithExpOrBexp()
 
-void BooleanOprator() {
+string BooleanOprator() {
+  if ( gNowToken == "=" ) {
+    TakeToken() ;
+    return "=" ;
+  } // if
+  else if ( gNowToken == "<>" ) {
+    TakeToken() ;
+    return "<>" ;
+  } // else if
+  else if ( gNowToken == ">" ) {
+    TakeToken() ;
+    return ">" ;
+  } // else if
+  else if ( gNowToken == "<" ) {
+    TakeToken() ;
+    return "<" ;
+  } // else if
+  else if ( gNowToken == ">=" ) {
+    TakeToken() ;
+    return ">=" ;
+  } // else if
+  else if ( gNowToken == "<=" ) {
+    TakeToken() ;
+    return "<=" ;
+  } // else if
+  else {
+    return "Not_boolOP" ;
+  } // else
+
 } // BooleanOprator()
 
 double NOT_ID_StartArithExp() {
   double return_ans = NOT_ID_StartTerm() ;
-  return 0;
+  if ( gNowToken.empty() ) {
+    gNowToken = GetToken() ;
+  } // if
+
+  if ( gNowToken == "+" || gNowToken == "-" ) {
+
+    while ( gNowToken == "+" || gNowToken == "-" ) {
+      string addOrSub = gNowToken ;
+      TakeToken() ; // take + or -
+      double term_return = Factor() ;
+
+      if ( addOrSub == "+" ) {
+        return_ans += term_return ;
+      } // if '+' <Term>
+      else if ( addOrSub == "-" ) {
+        return_ans -= term_return ;
+      } // else if '-' <Term>
+
+      gNowToken = GetToken() ;
+    } // while
+
+  } // if
+
+  return return_ans ;
 } // NOT_ID_StartArithExp()
 
 
 double NOT_ID_StartTerm() {
   double return_ans = NOT_ID_StartFactor() ;
-  return 0;
+
+  if ( gNowToken.empty() ) {
+    gNowToken = GetToken() ;
+  } // if
+
+  if ( gNowToken == "*" || gNowToken == "/" ) {
+
+    while ( gNowToken == "*" || gNowToken == "/" ) {
+      string multiOrDiv = gNowToken ;
+      TakeToken() ; // take * or /
+      double factor_return = Factor() ;
+      if ( multiOrDiv == "*" ) {
+        return_ans *= factor_return ;
+      } // if '*' <Factor>
+      else if ( multiOrDiv == "/" ) {
+        if ( factor_return == 0 ) {
+          throw ERROR ;
+        } // if Don't /0
+
+        return_ans /= factor_return ;
+      } // else if '/' <Factor>
+
+      gNowToken = GetToken() ;
+    } // while
+
+  } // if
+
+  return return_ans ;
 } // NOT_ID_StartTerm()
 
 
 double NOT_ID_StartFactor() {
   double return_ans = 0.0 ;
 
+  if ( gNowToken.empty() ) {
+    gNowToken = GetToken() ;
+  } // if
+
+
   if ( gNowToken == "+" || gNowToken == "-" ) {
     string sign = gNowToken ;
     TakeToken() ; // take [sign]
     gNowToken = GetToken() ; // get Num
+
     if ( JudgeNum( gNowToken ) ) {
 
       if ( JudgeFloat( gNowToken ) ) {
         gIsFloat = true ;
       } // if
+
+      string string_Num = gNowToken ;
+      TakeToken() ; //  take Num
 
       if ( sign == "+" ) {
         return 1 * atof( string_Num.c_str() ) ;
@@ -433,6 +571,8 @@ double NOT_ID_StartFactor() {
     } // else
   } // if sign & Num
   else if ( JudgeNum( gNowToken ) ) {
+    string string_Num = gNowToken ;
+    TakeToken() ; // take Num
 
     if ( JudgeFloat( gNowToken ) ) {
       gIsFloat = true ;
@@ -440,34 +580,102 @@ double NOT_ID_StartFactor() {
 
     return atof( string_Num.c_str() ) ;
   } // else if Num without sign
+  else if ( gNowToken == "(" ) {
+    TakeToken() ; // take "("
+    return_ans = ArithExp() ;
 
-  return 0;
+    gNowToken = GetToken() ; // ")"
+    if ( gNowToken == ")" ) {
+      TakeToken() ;
+      return return_ans ;
+    } // if
+    else {
+      throw UNEXPECTED ;
+    } // else
+  } // else if
+  else {
+    throw UNEXPECTED ;
+  } // else
+
+  return return_ans ;
 } // NOT_ID_StartFactor()
 
 
 double ArithExp() {
-  Term() ;
-  cout << gNowToken << "\bIs ArithExp" << endl ;
-  return 0;
+  double return_ans = Term() ;
+  if ( gNowToken.empty() ) {
+    gNowToken = GetToken() ;
+  } // if
+
+  if ( gNowToken == "+" || gNowToken == "-" ) {
+
+    while ( gNowToken == "+" || gNowToken == "-" ) {
+      string addOrSub = gNowToken ;
+      TakeToken() ; // take + or -
+      double term_return = Factor() ;
+
+      if ( addOrSub == "+" ) {
+        return_ans += term_return ;
+      } // if '+' <Term>
+      else if ( addOrSub == "-" ) {
+        return_ans -= term_return ;
+      } // else if '-' <Term>
+
+      gNowToken = GetToken() ;
+    } // while
+
+  } // if
+
+  return return_ans ;
 } // ArithExp()
 
 double Term() {
-  double factor_return = Factor() ;
-  cout << gNowToken << "\bIs Term" << endl ;
-  return 0;
+  double return_ans = Factor() ;
+
+  if ( gNowToken.empty() ) {
+    gNowToken = GetToken() ;
+  } // if
+
+  if ( gNowToken == "*" || gNowToken == "/" ) {
+
+    while ( gNowToken == "*" || gNowToken == "/" ) {
+      string multiOrDiv = gNowToken ;
+      TakeToken() ; // take * or /
+      double factor_return = Factor() ;
+      if ( multiOrDiv == "*" ) {
+        return_ans *= factor_return ;
+      } // if '*' <Factor>
+      else if ( multiOrDiv == "/" ) {
+        if ( factor_return == 0 ) {
+          throw ERROR ;
+        } // if Don't /0
+
+        return_ans /= factor_return ;
+      } // else if '/' <Factor>
+
+      gNowToken = GetToken() ;
+    } // while
+
+  } // if
+
+  return return_ans ;
 } // Term()
 
 double Factor() {
-  bool findVar = false ;
-  gNowToken = GetToken() ;
+
+  if ( gNowToken.empty() ) {
+    gNowToken = GetToken() ;
+  } // if
+
   if ( JudgeIDENT( gNowToken ) ) {
+    bool findVar = false ;
     for ( int i = 0 ; i < gId.size() ; i++ ) {
       if ( gId[i].identify_Name == gNowToken ) {
         if ( gId[i].isFloat ) {
           gIsFloat = true ;
         } // if
 
-        TakeToken() ;
+        TakeToken() ; // take IDENT
         findVar = true ;
         return gId[i].identify_value ;
       } // if vector has this var
@@ -505,11 +713,26 @@ double Factor() {
     } // else
   } // else if sign Num
   else if ( JudgeNum( gNowToken ) ) {
-
+    string string_Num = gNowToken ;
+    TakeToken() ; //  take Num
+    return atof( string_Num.c_str() ) ;
   } // else if pure Num
-  else {
+  else if ( gNowToken == "(" ) {
+    TakeToken() ; // '('
+    double return_ans = ArithExp() ;
+    gNowToken = GetToken() ; // '('
 
+    if ( gNowToken != ")" ) {
+      throw UNEXPECTED ;
+    } // if
+    else {
+      return return_ans ;
+    } // else
+
+  } // else if '(' <ArithExp> ')'
+  else {
+    throw UNEXPECTED ;
   } // else
-  cout << gNowToken << "\bIs Factor" << endl ;
-  return 0;
+
+  return 0.0 ;
 } // Factor()
