@@ -15,7 +15,7 @@ enum Error_type{ UNRECOGNIZED, UNDEFINED, UNEXPECTED, QUIT };
 struct Identify_Data{
   string identify_Name ;
   double identify_value ;
-  bool isDouble ;
+  bool isFloat ;
 } ;
 
 // ===============================================================
@@ -27,7 +27,8 @@ vector<Identify_Data> gId ;
 int gTestNum = 0 ;
 int gFirstUnknow = -1 ;
 bool gQuit = false ;
-bool gIsDouble = false ;
+bool gIsFloat = false ;
+char gUnknowChar ;
 // ===============================================================
 
 // ======================use for Initialize=======================
@@ -90,13 +91,13 @@ int main() {
     catch ( Error_type error ) {
       ReadAfterError() ;
       if ( error == UNRECOGNIZED ) {
-        cout << "UNRECOGNIZED\n" ;
+        cout << "Unrecognized token with first char : '" << gUnknowChar << "'" << endl ;
       } // if
       else if ( error == UNDEFINED ) {
         cout << "UNDEFINED\n" ;
       } // else if
       else if ( error == UNEXPECTED ) {
-        cout << "UNEXPECTED\n" ;
+        cout << "Unexpected token : '" << gNowToken << "'" << endl ;
       } // else if
       else if ( error == QUIT ) {
         cout << "> Program exits..." ;
@@ -133,6 +134,17 @@ string GetToken() {
 
 } // GetToken()
 
+bool UnknowChar( char aChar ) {
+  if ( isalnum( aChar ) || aChar == '_' || aChar == '.' || aChar == '(' || aChar == ')' ||
+       aChar == '+' || aChar == '-' || aChar == '*' || aChar == '/' || aChar == '>' ||
+       aChar == '<' || aChar == ':' || aChar == '=' ) {
+    return false ;
+  } // if
+  else return true ;
+
+  return true ;
+} // UnknowChar()
+
 void SkipExitChar() {
 
   char aChar ;
@@ -155,7 +167,6 @@ void SkipExitChar() {
 
 } // SkipExitChar()
 
-
 bool StopRead( char aChar ) {
 
   if ( aChar == '+' || aChar == '-' || aChar == '*' || aChar == '/'
@@ -165,7 +176,12 @@ bool StopRead( char aChar ) {
     return true ;
   } // if
   else {
-    return false ;
+    if ( isalnum( aChar ) || aChar == '_' ) {
+      return false ;
+    } // if a~z || A~Z || 0~9 || _
+
+    gUnknowChar = aChar ;
+    throw UNRECOGNIZED ;
   } // else
 
   return false ;
@@ -179,7 +195,8 @@ void InitializeToken() {
 void InitializeState() {
   gNowToken.clear() ;
   gPeekToken.clear() ;
-  gIsDouble = false ;
+  gIsFloat = false ;
+  gQuit = false ;
 } // InitializeState()
 
 string SpecialToken( char aChar, string Token ) {
@@ -250,7 +267,7 @@ string ReadFloat( string Token ) {
 } // ReadFloat()
 
 bool IsQuit( string Token ) {
-  if ( Token == "quit123" ) {
+  if ( Token == "quit" ) {
     gQuit = true ;
     return true ;
   } // if
@@ -262,54 +279,17 @@ void Command() {
 
   gNowToken = GetToken() ;
 
-  if ( JudgeIDENT( gNowToken ) ) {
-    string  varName = gNowToken ;
-    bool findVar = false ;
-    int find_num = 0 ;
-    for ( int i = 0 ; i < gId.size() ; i++ ) {
-      if ( gId[i].identify_Name == gNowToken ) {
-        if ( gId[i].isDouble ) {
-          gIsDouble = true ;
-        } // if
-        find_num = i ;
-        findVar = true ;
-      } // if vector has this var
-    } // for
-
-    if ( !findVar ) {
-      throw UNDEFINED ;
-    } // if
-
-    TakeToken() ; // get the token(IDENT)
-    gNowToken = GetToken() ; // case : 1.":=" 2."<IDlessArithExpOrBexp>" 3.";"
-    if ( gNowToken.length() == 2 && gNowToken.at( 0 ) == ':' && gNowToken.at( 1 ) == '=' ) {
-      TakeToken() ; // get the token(":=")
-      ArithExp() ; // DO <ArithExp>
-    } // if get ':=' and do <ArithExp>
-    else if ( gNowToken.length() == 1 && gNowToken.at( 0 ) == ';' ) {
-      TakeToken() ;
-      if ( gId[ find_num ].isDouble ) {
-        cout << fixed << setprecision( 3 ) << gId[ find_num ].identify_value << endl ;
-      } // if
-      else {
-        cout << gId[ find_num ].identify_value << endl ;
-      } // else
-    } // else if
-    else {
-      IDlessArithExpOrBexp() ;
-      cout << "is JudgeIDlessArithExpOrBexp" << endl ;
-    } // else <IDlessArithExpOrBexp>
+  if ( IsQuit( gNowToken ) ) {
+    throw QUIT ;
+  } // if quit
+  else if ( JudgeIDENT( gNowToken ) ) {
+    cout << "ID" << endl ;
   } // if IDENT ( ':=' <ArithExp> | <IDlessArithExpOrBexp> ) ';'
-  else if ( gNowToken.at( 0 ) == '-' ||  gNowToken.at( 0 ) == '+' || isdigit( gNowToken.at( 0 ) )
-            || gNowToken.at( 0 ) == '.' || gNowToken.at( 0 ) == '(' ) {
+  else if ( !JudgeIDENT( gNowToken ) ) {
     NOT_ID_StartArithExpOrBexp() ;
   } // else if <NOT_IDStartArithExpOrBexp>
-  else if ( IsQuit( gNowToken ) ) {
-    throw QUIT ;
-  } // else if QUIT
   else {
-    ReadAfterError() ;
-    throw ( UNEXPECTED ) ;
+    throw UNEXPECTED ;
   } // else
 
 } // Command()
@@ -318,7 +298,7 @@ bool JudgeIDENT( string Token ) {
   int length = Token.length() ;
   int correct = 0 ;
 
-  if ( isalpha( Token.at( 0 ) || Token.at( 0 ) == '_' ) {
+  if ( isalpha( Token.at( 0 ) ) || Token.at( 0 ) == '_' ) {
     correct++ ;
   } // if a~z||A~Z|| _
 
@@ -380,48 +360,6 @@ bool JudgeFloat( string Token ) {
   return false ;
 } // JudgeFloat()
 
-bool JudgeArithExp( string Token ) {
-  if ( JudgeTerm( Token ) ) return true ;
-
-  return false ;
-} // JudgeArithExp()
-
-bool JudgeTerm( string Token ) {
-  if ( JudgeFactor( Token ) ) return true ;
-
-  return false ;
-} // JudgeTerm()
-
-bool JudgeFactor( string Token ) {
-  if ( JudgeIDENT( Token ) ) {
-    return true ;
-  } // if IDENT
-  else if ( ( Token.length() == 1 ) && ( Token.at( 0 ) == '+' || Token.at( 0 ) == '-' ) ) {
-    if ( JudgeNum( gPeekToken ) ) {
-      return true ;
-    } // if case : +2 -3
-    else {
-      return false ;
-    } // else +a -b  return error
-  } // else if [ SIGN ] NUM
-  else if ( JudgeNum( Token ) ) {
-    return true ;
-  } // else if Just NUM no sign case: 1 28
-  else if ( ( Token.length() == 1 ) && Token.at( 0 ) == '(' ) {
-    return true ;
-  } // else if '(' <ArithExp> ')'
-  else {
-    return false ;
-  } // else
-
-  return false ;
-
-} // JudgeFactor()
-
-bool JudgeIDlessArithExpOrBexp( string Token ) {
-  return true ;
-} // JudgeIDlessArithExpOrBexp()
-
 void ReadAfterError() {
   char aChar ;
   aChar = cin.peek() ;
@@ -445,38 +383,64 @@ void JudgeUnrecognizedChar() {
 
 } // JudgeUnrecognizedChar()
 
-bool UnknowChar( char aChar ) {
-  if ( isalnum( aChar ) || aChar == '_' || aChar == '.' || aChar == '(' || aChar == ')' ||
-       aChar == '+' || aChar == '-' || aChar == '*' || aChar == '/' || aChar == '>' ||
-       aChar == '<' || aChar == ':' || aChar == '=' ) {
-    return false ;
-  } // if
-  else return true ;
-
-  return true ;
-} // UnknowChar()
-
 void NOT_ID_StartArithExpOrBexp() {
-  cout << "NOT_ID_StartArithExpOrBexp:" << gNowToken << endl ;
+  double return_ans = NOT_ID_StartArithExp() ;
+
 } // NOT_ID_StartArithExpOrBexp()
 
 double IDlessArithExpOrBexp() {
+  return 0 ;
 } // IDlessArithExpOrBexp()
 
 void BooleanOprator() {
 } // BooleanOprator()
 
 double NOT_ID_StartArithExp() {
+  double return_ans = NOT_ID_StartTerm() ;
   return 0;
 } // NOT_ID_StartArithExp()
 
 
 double NOT_ID_StartTerm() {
+  double return_ans = NOT_ID_StartFactor() ;
   return 0;
 } // NOT_ID_StartTerm()
 
 
 double NOT_ID_StartFactor() {
+  double return_ans = 0.0 ;
+
+  if ( gNowToken == "+" || gNowToken == "-" ) {
+    string sign = gNowToken ;
+    TakeToken() ; // take [sign]
+    gNowToken = GetToken() ; // get Num
+    if ( JudgeNum( gNowToken ) ) {
+
+      if ( JudgeFloat( gNowToken ) ) {
+        gIsFloat = true ;
+      } // if
+
+      if ( sign == "+" ) {
+        return 1 * atof( string_Num.c_str() ) ;
+      } // if +Num
+      else if ( sign == "-" ) {
+        return -1 * atof( string_Num.c_str() ) ;
+      } // else if -Num
+
+    } // if
+    else {
+      throw UNEXPECTED ;
+    } // else
+  } // if sign & Num
+  else if ( JudgeNum( gNowToken ) ) {
+
+    if ( JudgeFloat( gNowToken ) ) {
+      gIsFloat = true ;
+    } // if
+
+    return atof( string_Num.c_str() ) ;
+  } // else if Num without sign
+
   return 0;
 } // NOT_ID_StartFactor()
 
@@ -488,7 +452,7 @@ double ArithExp() {
 } // ArithExp()
 
 double Term() {
-  Factor() ;
+  double factor_return = Factor() ;
   cout << gNowToken << "\bIs Term" << endl ;
   return 0;
 } // Term()
@@ -499,18 +463,53 @@ double Factor() {
   if ( JudgeIDENT( gNowToken ) ) {
     for ( int i = 0 ; i < gId.size() ; i++ ) {
       if ( gId[i].identify_Name == gNowToken ) {
-        if ( gId[i].isDouble ) {
-          gIsDouble = true ;
+        if ( gId[i].isFloat ) {
+          gIsFloat = true ;
         } // if
+
         TakeToken() ;
         findVar = true ;
         return gId[i].identify_value ;
       } // if vector has this var
     } // for
+
     if ( !findVar ) {
       throw UNDEFINED ;
     } // if
-  } // IDENT
+
+  } // if IDENT
+  else if ( gNowToken == "+" || gNowToken == "-" ) {
+    string sign = gNowToken ;
+    TakeToken() ; // "+" or "-"
+    gNowToken = GetToken() ; // get Num
+
+    if ( JudgeNum( gNowToken ) ) {
+
+      if ( JudgeFloat( gNowToken ) ) {
+        gIsFloat = true ;
+      } // if
+
+      string string_Num = gNowToken ;
+      TakeToken() ; //  take Num
+
+      if ( sign == "+" ) {
+        return 1 * atof( string_Num.c_str() ) ;
+      } // if +Num
+      else if ( sign == "-" ) {
+        return -1 * atof( string_Num.c_str() ) ;
+      } // else if -Num
+
+    } // if
+    else {
+      throw UNEXPECTED ;
+    } // else
+  } // else if sign Num
+  else if ( JudgeNum( gNowToken ) ) {
+
+  } // else if pure Num
+  else {
+
+  } // else
   cout << gNowToken << "\bIs Factor" << endl ;
   return 0;
 } // Factor()
