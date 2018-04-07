@@ -23,6 +23,7 @@ struct Identify_Data{
 // ======================global var===============================
 string gNowToken ;
 string gPeekToken ;
+string gBoolAns ;
 vector<Identify_Data> gId ;
 int gTestNum = 0 ;
 bool gIsBoolOP = false ;
@@ -54,6 +55,7 @@ bool JudgeIDENT( string Token ) ;
 bool JudgeNum( string Token ) ;
 bool JudgeFloat( string Token ) ;
 bool JudgeInt( string Token ) ;
+int JudgeDefine() ;
 bool IsQuit( string Token ) ;
 // ===============================================================
 
@@ -69,6 +71,7 @@ double ArithExp() ;
 double Term() ;
 double Factor() ;
 // ===============================================================
+void output_ans( double ans ) ;
 
 int main() {
   cout << "Program starts..." << endl ;
@@ -85,7 +88,7 @@ int main() {
         cout << "Unrecognized token with first char : '" << gUnknowChar << "'" << endl ;
       } // if
       else if ( error == UNDEFINED ) {
-        cout << "UNDEFINED\n" ;
+        cout << "UNDEFINED : '" gNowToken << "'" << endl ;
       } // else if
       else if ( error == UNEXPECTED ) {
         cout << "Unexpected token : '" << gNowToken << "'" << endl ;
@@ -187,6 +190,7 @@ void InitializeToken() {
 void InitializeState() {
   gNowToken.clear() ;
   gPeekToken.clear() ;
+  gBoolAns.clear() ;
   gIsFloat = false ;
   gQuit = false ;
   gIsBoolOP = false ;
@@ -269,6 +273,25 @@ bool IsQuit( string Token ) {
   return false ;
 } // IsQuit()
 
+void output_ans( double ans ) {
+
+  if ( !gIsBoolOP ) {
+    if ( gIsFloat ) {
+      if ( ans > -0.001 && ans < 0 )
+        cout << fixed << setprecision( 3 ) << "0.000" << endl ;
+      else
+        cout << fixed << setprecision( 3 ) << ans << endl ;
+    } // if
+    else {
+      cout << ( int ) ans << endl ;
+    } // else
+  } // if
+  else {
+    cout << gBoolAns << endl ;
+  } // else
+
+} // output_ans()
+
 void Command() {
   cout << "> " ;
   gNowToken = GetToken() ;
@@ -277,23 +300,92 @@ void Command() {
     gQuit = true ;
   } // if quit
   else if ( JudgeIDENT( gNowToken ) ) {
-    cout << "ID" << endl ;
+    string id_name = gNowToken ;
+    TakeToken() ; // take IDENT
+    if ( gNowToken.empty() ) {
+      gNowToken = GetToken() ;
+    } // if
+
+    if ( gNowToken == ":=" ) {
+      TakeToken() ; // take ":="
+      double return_ans = ArithExp() ;
+
+      if ( gNowToken.empty() ) {
+        gNowToken = GetToken() ; // get ";"
+      } // if
+
+      if ( gNowToken == ";" ) {
+        TakeToken() ; // take ";"
+        output_ans( return_ans ) ;
+      } // if
+      else {
+        throw UNEXPECTED ;
+      } // else
+
+    } // if ':=' <ArithExp>
+    else {
+      int ident_index = JudgeDefine() ;
+      double return_ans = IDlessArithExpOrBexp() ;
+      if ( gNowToken.empty() ) {
+        gNowToken = GetToken() ; // get ";"
+      } // if
+
+      if ( gNowToken == ";" ) {
+        TakeToken() ; // take ";"
+        if ( !gIsBoolOP ) {
+
+          if ( gIsFloat ) {
+            if ( return_ans > -0.001 && return_ans < 0 )
+              cout << fixed << setprecision( 3 ) << "0.000" << endl ;
+            else
+              cout << fixed << setprecision( 3 ) << return_ans << endl ;
+          } // if
+          else {
+            cout << ( int ) return_ans << endl ;
+          } // else
+
+        } // if
+        else {
+          cout << gBoolAns << endl ;
+        } // else
+      } // if
+      else {
+        throw UNEXPECTED ;
+      } // else
+
+    } // else <IDlessArithExpOrBexp>
+
   } // if IDENT ( ':=' <ArithExp> | <IDlessArithExpOrBexp> ) ';'
   else if ( !JudgeIDENT( gNowToken ) ) {
     return_ans = NOT_ID_StartArithExpOrBexp() ;
-    if ( !gIsBoolOP ) {
 
-      if ( gIsFloat ) {
-        if ( return_ans > -0.001 && return_ans < 0 )
-          cout << fixed << setprecision( 3 ) << "0.000" << endl ;
-        else
-          cout << fixed << setprecision( 3 ) << return_ans << endl ;
+    if ( gNowToken.empty() ) {
+      gNowToken = GetToken() ; // get ";"
+    } // if
+
+    if ( gNowToken == ";" ) {
+      TakeToken() ; // take ";"
+      if ( !gIsBoolOP ) {
+
+        if ( gIsFloat ) {
+          if ( return_ans > -0.001 && return_ans < 0 )
+            cout << fixed << setprecision( 3 ) << "0.000" << endl ;
+          else
+            cout << fixed << setprecision( 3 ) << return_ans << endl ;
+        } // if
+        else {
+          cout << ( int ) return_ans << endl ;
+        } // else
+
       } // if
       else {
-        cout << ( int ) return_ans << endl ;
+        cout << gBoolAns << endl ;
       } // else
-
     } // if
+    else {
+      throw UNEXPECTED ;
+    } // else
+
   } // else if <NOT_IDStartArithExpOrBexp>
   else {
     throw UNEXPECTED ;
@@ -367,6 +459,25 @@ bool JudgeFloat( string Token ) {
   return false ;
 } // JudgeFloat()
 
+int JudgeDefine() {
+
+  for ( int i = 0 ; i < gId.size() ; i++ ) {
+    if ( gId[i].identify_Name == gNowToken ) {
+      if ( gId[i].isFloat ) {
+        gIsFloat = true ;
+      } // if
+
+      TakeToken() ; // take IDENT
+      return i ;
+    } // if vector has this var
+  } // for
+
+
+  throw UNDEFINED ;
+  return 0 ;
+
+} // JudgeDefine()
+
 void ReadAfterError() {
   char aChar ;
   aChar = cin.peek() ;
@@ -385,7 +496,6 @@ void TakeToken() {
     gPeekToken.clear() ;
   } // else
 } // TakeToken()
-
 
 double NOT_ID_StartArithExpOrBexp() {
   double return_ans = NOT_ID_StartArithExp() ;
@@ -407,28 +517,28 @@ double NOT_ID_StartArithExpOrBexp() {
     } // if
 
     if ( boolOperator == "=" ) {
-      if ( return_ans == arithexp_return ) cout << "true" << endl ;
-      else cout << "false" << endl ;
+      if ( return_ans == arithexp_return ) gBoolAns = "true"  ;
+      else gBoolAns = "false" ;
     } // if "="
     else if ( boolOperator == "<>" ) {
-      if ( return_ans != arithexp_return ) cout << "true" << endl ;
-      else cout << "false" << endl ;
+      if ( return_ans != arithexp_return ) gBoolAns = "true" ;
+      else gBoolAns = "false" ;
     } // else if "<>"
     else if ( boolOperator == ">" ) {
-      if ( return_ans > arithexp_return ) cout << "true" << endl ;
-      else cout << "false" << endl ;
+      if ( return_ans > arithexp_return ) gBoolAns = "true" ;
+      else gBoolAns = "false" ;
     } // else if ">"
     else if ( boolOperator == "<" ) {
-      if ( return_ans < arithexp_return ) cout << "true" << endl ;
-      else cout << "false" << endl ;
+      if ( return_ans < arithexp_return ) gBoolAns = "true" ;
+      else gBoolAns = "false" ;
     } // else if "<"
     else if ( boolOperator == ">=" ) {
-      if ( return_ans >= arithexp_return ) cout << "true" << endl ;
-      else cout << "false" << endl ;
+      if ( return_ans >= arithexp_return ) gBoolAns = "true" ;
+      else gBoolAns = "false" ;
     } // else if ">="
     else if ( boolOperator == "<=" ) {
-      if ( return_ans <= arithexp_return ) cout << "true" << endl ;
-      else cout << "false" << endl ;
+      if ( return_ans <= arithexp_return ) gBoolAns = "true" ;
+      else gBoolAns = "false" ;
     } // else if "<="
 
   } // if [ <BooleanOperator> <ArithExp> ]
@@ -503,7 +613,6 @@ double NOT_ID_StartArithExp() {
   return return_ans ;
 } // NOT_ID_StartArithExp()
 
-
 double NOT_ID_StartTerm() {
   double return_ans = NOT_ID_StartFactor() ;
 
@@ -548,7 +657,6 @@ double NOT_ID_StartTerm() {
 
   return return_ans ;
 } // NOT_ID_StartTerm()
-
 
 double NOT_ID_StartFactor() {
   double return_ans = 0.0 ;
@@ -618,7 +726,6 @@ double NOT_ID_StartFactor() {
 
   return return_ans ;
 } // NOT_ID_StartFactor()
-
 
 double ArithExp() {
   double return_ans = Term() ;
@@ -702,23 +809,10 @@ double Factor() {
   } // if
 
   if ( JudgeIDENT( gNowToken ) ) {
-    bool findVar = false ;
-    for ( int i = 0 ; i < gId.size() ; i++ ) {
-      if ( gId[i].identify_Name == gNowToken ) {
-        if ( gId[i].isFloat ) {
-          gIsFloat = true ;
-        } // if
+    int ident_index = JudgeDefine() ;
+    if ( gId[ident_index].isFloat ) gIsFloat = true ;
 
-        TakeToken() ; // take IDENT
-        findVar = true ;
-        return gId[i].identify_value ;
-      } // if vector has this var
-    } // for
-
-    if ( !findVar ) {
-      throw UNDEFINED ;
-    } // if
-
+    return gId[ident_index].identify_value ;
   } // if IDENT
   else if ( gNowToken == "+" || gNowToken == "-" ) {
     string sign = gNowToken ;
