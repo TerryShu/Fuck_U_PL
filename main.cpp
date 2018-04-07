@@ -71,8 +71,9 @@ double Factor() ;
 // ===============================================================
 
 int main() {
-
+  cout << "Program starts..." << endl ;
   //cin >> gTestNum ;
+
   while ( !gQuit ) {
     InitializeState() ;
     try {
@@ -96,7 +97,7 @@ int main() {
     } // catch
   } // while
 
-  cout << "> Program exits..." << endl ;
+  cout << "Program exits..." << endl ;
 } // main()
 
 string GetToken() {
@@ -269,7 +270,7 @@ bool IsQuit( string Token ) {
 } // IsQuit()
 
 void Command() {
-  cout << "<" ;
+  cout << "> " ;
   gNowToken = GetToken() ;
   double return_ans ;
   if ( IsQuit( gNowToken ) ) {
@@ -283,13 +284,13 @@ void Command() {
     if ( !gIsBoolOP ) {
 
       if ( gIsFloat ) {
-          if ( return_ans > -0.001 && return_ans < 0 )
-            cout << fixed << setprecision( 3 ) << "0.000" << endl ;
-          else
-            cout << fixed << setprecision( 3 ) << return_ans << endl ;
+        if ( return_ans > -0.001 && return_ans < 0 )
+          cout << fixed << setprecision( 3 ) << "0.000" << endl ;
+        else
+          cout << fixed << setprecision( 3 ) << return_ans << endl ;
       } // if
       else {
-        cout << (int)return_ans << endl ;
+        cout << ( int ) return_ans << endl ;
       } // else
 
     } // if
@@ -345,9 +346,9 @@ bool JudgeInt( string Token ) {
 bool JudgeFloat( string Token ) {
   int length = Token.length() ;
   int correct = 0 ;
-  bool first = true ;
+  bool find_point = false ;
 
-  if ( length == 1 && Token.at( 0 ) == '.' ) {
+  if ( Token == "." ) {
     return false ;
   } // if just one point '.'
 
@@ -355,13 +356,13 @@ bool JudgeFloat( string Token ) {
     if ( Token.at( i ) >= '0' && Token.at( i ) <= '9' ) {
       correct++ ;
     } // if  0~9
-    else if ( Token.at( i ) == '.' && first ) {
+    else if ( Token.at( i ) == '.' && !find_point ) {
       correct++ ;
-      first = false ;
+      find_point = true ;
     } // else if judge 123.111 && .2 && 2. should take care
   } // for
 
-  if ( correct == length ) return true ;
+  if ( correct == length && find_point ) return true ;
 
   return false ;
 } // JudgeFloat()
@@ -385,9 +386,6 @@ void TakeToken() {
   } // else
 } // TakeToken()
 
-void JudgeUnrecognizedChar() {
-
-} // JudgeUnrecognizedChar()
 
 double NOT_ID_StartArithExpOrBexp() {
   double return_ans = NOT_ID_StartArithExp() ;
@@ -485,7 +483,7 @@ double NOT_ID_StartArithExp() {
     while ( gNowToken == "+" || gNowToken == "-" ) {
       string addOrSub = gNowToken ;
       TakeToken() ; // take + or -
-      double term_return = Factor() ;
+      double term_return = Term() ;
 
       if ( addOrSub == "+" ) {
         return_ans += term_return ;
@@ -494,7 +492,10 @@ double NOT_ID_StartArithExp() {
         return_ans -= term_return ;
       } // else if '-' <Term>
 
-      gNowToken = GetToken() ;
+      if ( gNowToken.empty() ) {
+        gNowToken = GetToken() ;
+      } // if
+
     } // while
 
   } // if
@@ -518,6 +519,11 @@ double NOT_ID_StartTerm() {
       double factor_return = Factor() ;
       if ( multiOrDiv == "*" ) {
         return_ans *= factor_return ;
+
+        if ( !gIsFloat ) {
+          return_ans = ( int ) return_ans ;
+        } // if
+
       } // if '*' <Factor>
       else if ( multiOrDiv == "/" ) {
         if ( factor_return == 0 ) {
@@ -525,9 +531,17 @@ double NOT_ID_StartTerm() {
         } // if Don't /0
 
         return_ans /= factor_return ;
+
+        if ( !gIsFloat ) {
+          return_ans = ( int ) return_ans ;
+        } // if
+
       } // else if '/' <Factor>
 
-      gNowToken = GetToken() ;
+      if ( gNowToken.empty() ) {
+        gNowToken = GetToken() ;
+      } // if
+
     } // while
 
   } // if
@@ -547,7 +561,9 @@ double NOT_ID_StartFactor() {
   if ( gNowToken == "+" || gNowToken == "-" ) {
     string sign = gNowToken ;
     TakeToken() ; // take [sign]
-    gNowToken = GetToken() ; // get Num
+    if ( gNowToken.empty() ) {
+      gNowToken = GetToken() ; // get Num
+    } // if
 
     if ( JudgeNum( gNowToken ) ) {
 
@@ -574,7 +590,7 @@ double NOT_ID_StartFactor() {
     string string_Num = gNowToken ;
     TakeToken() ; // take Num
 
-    if ( JudgeFloat( gNowToken ) ) {
+    if ( JudgeFloat( string_Num ) ) {
       gIsFloat = true ;
     } // if
 
@@ -584,7 +600,10 @@ double NOT_ID_StartFactor() {
     TakeToken() ; // take "("
     return_ans = ArithExp() ;
 
-    gNowToken = GetToken() ; // ")"
+    if ( gNowToken.empty() ) {
+      gNowToken = GetToken() ; // ")"
+    } // if
+
     if ( gNowToken == ")" ) {
       TakeToken() ;
       return return_ans ;
@@ -612,7 +631,7 @@ double ArithExp() {
     while ( gNowToken == "+" || gNowToken == "-" ) {
       string addOrSub = gNowToken ;
       TakeToken() ; // take + or -
-      double term_return = Factor() ;
+      double term_return = Term() ;
 
       if ( addOrSub == "+" ) {
         return_ans += term_return ;
@@ -621,7 +640,10 @@ double ArithExp() {
         return_ans -= term_return ;
       } // else if '-' <Term>
 
-      gNowToken = GetToken() ;
+      if ( gNowToken.empty() ) {
+        gNowToken = GetToken() ;
+      } // if
+
     } // while
 
   } // if
@@ -644,6 +666,11 @@ double Term() {
       double factor_return = Factor() ;
       if ( multiOrDiv == "*" ) {
         return_ans *= factor_return ;
+
+        if ( !gIsFloat ) {
+          return_ans = ( int ) return_ans ;
+        } // if
+
       } // if '*' <Factor>
       else if ( multiOrDiv == "/" ) {
         if ( factor_return == 0 ) {
@@ -651,9 +678,16 @@ double Term() {
         } // if Don't /0
 
         return_ans /= factor_return ;
+
+        if ( !gIsFloat ) {
+          return_ans = ( int ) return_ans ;
+        } // if
+
       } // else if '/' <Factor>
 
-      gNowToken = GetToken() ;
+      if ( gNowToken.empty() ) {
+        gNowToken = GetToken();
+      } // if
     } // while
 
   } // if
@@ -689,7 +723,9 @@ double Factor() {
   else if ( gNowToken == "+" || gNowToken == "-" ) {
     string sign = gNowToken ;
     TakeToken() ; // "+" or "-"
-    gNowToken = GetToken() ; // get Num
+    if ( gNowToken.empty() ) {
+      gNowToken = GetToken(); // get Num
+    } // if
 
     if ( JudgeNum( gNowToken ) ) {
 
@@ -715,17 +751,25 @@ double Factor() {
   else if ( JudgeNum( gNowToken ) ) {
     string string_Num = gNowToken ;
     TakeToken() ; //  take Num
+    if ( JudgeFloat( string_Num ) ) {
+      gIsFloat = true ;
+    } // if
+
     return atof( string_Num.c_str() ) ;
   } // else if pure Num
   else if ( gNowToken == "(" ) {
     TakeToken() ; // '('
     double return_ans = ArithExp() ;
-    gNowToken = GetToken() ; // '('
+
+    if ( gNowToken.empty() ) {
+      gNowToken = GetToken() ; // ')'
+    } // if
 
     if ( gNowToken != ")" ) {
       throw UNEXPECTED ;
     } // if
     else {
+      TakeToken() ;
       return return_ans ;
     } // else
 
