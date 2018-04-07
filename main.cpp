@@ -26,6 +26,7 @@ string gPeekToken ;
 string gBoolAns ;
 vector<Identify_Data> gId ;
 int gTestNum = 0 ;
+bool gChange = false ;
 bool gIsBoolOP = false ;
 bool gQuit = false ;
 bool gIsFloat = false ;
@@ -37,17 +38,16 @@ void InitializeToken() ;
 void InitializeState() ;
 // ===============================================================
 
-
 // =======================use for get token=======================
 string GetToken() ;
 void SkipExitChar() ;
-bool StopRead( char aChar ) ;
 string SpecialToken( char aChar, string Token ) ;
-string ReadFloat( string Token ) ;
+string ReadNum() ;
+string ReadIdent() ;
+string ReadOPAndComment() ;
 bool IsFloat() ;
 void TakeToken() ;
 void ReadAfterError() ;
-bool UnknowChar( char aChar ) ;
 // ===============================================================
 
 // =======================use for judge===========================
@@ -55,13 +55,13 @@ bool JudgeIDENT( string Token ) ;
 bool JudgeNum( string Token ) ;
 bool JudgeFloat( string Token ) ;
 bool JudgeInt( string Token ) ;
-int JudgeDefine() ;
+int JudgeDefine( string id_name, bool take ) ;
 bool IsQuit( string Token ) ;
 // ===============================================================
 
 // =======================recursive===============================
 void Command() ;
-double IDlessArithExpOrBexp() ;
+double IDlessArithExpOrBexp( string id_name ) ;
 string BooleanOprator() ;
 double NOT_ID_StartArithExpOrBexp() ;
 double NOT_ID_StartArithExp() ;
@@ -71,11 +71,12 @@ double ArithExp() ;
 double Term() ;
 double Factor() ;
 // ===============================================================
-void output_ans( double ans ) ;
+void Output_ans( double ans ) ;
+void Update_define( string id_name, double value ) ;
 
 int main() {
+  cin >> gTestNum ;
   cout << "Program starts..." << endl ;
-  //cin >> gTestNum ;
 
   while ( !gQuit ) {
     InitializeState() ;
@@ -88,7 +89,7 @@ int main() {
         cout << "Unrecognized token with first char : '" << gUnknowChar << "'" << endl ;
       } // if
       else if ( error == UNDEFINED ) {
-        cout << "UNDEFINED : '" gNowToken << "'" << endl ;
+        cout << "Undefined identifier : '" << gNowToken << "'" << endl ;
       } // else if
       else if ( error == UNEXPECTED ) {
         cout << "Unexpected token : '" << gNowToken << "'" << endl ;
@@ -110,44 +111,168 @@ string GetToken() {
   SkipExitChar() ; // 跳過一開始空白
   string token = "" ;
   peekChar = cin.peek() ;
-  if ( !StopRead( peekChar ) ) {
-    while ( !StopRead( peekChar ) ) {
+  if ( isalnum( peekChar ) || peekChar == '_' || peekChar == '.' ) {
+
+    if ( isdigit( peekChar ) || peekChar == '.' ) {
+      token = ReadNum() ;
+    } // if
+    else {
+      token = ReadIdent() ;
+    } // else
+
+  } // if
+  else if ( peekChar == '+' || peekChar == '=' || peekChar == ':' ||
+            peekChar == '-' || peekChar == '*' || peekChar == '/' ||
+            peekChar == ';' || peekChar == '>' || peekChar == '<' ||
+            peekChar == '(' || peekChar == ')' ) {
+    token = ReadOPAndComment() ;
+  } // else if
+  else {
+    if ( !isalnum( peekChar ) && peekChar != '_' && peekChar != '+' &&
+         peekChar != '-' && peekChar != '*' && peekChar != '/' &&
+         peekChar != ';' && peekChar != '>' && peekChar != '<' &&
+         peekChar != ':' && peekChar != '(' && peekChar != ')' &&
+         peekChar != '.' && peekChar != '=' ) {
+      gUnknowChar = peekChar ;
+      throw UNRECOGNIZED ;
+    } // if all possibly start
+
+  } // else
+
+
+
+  return token ;
+
+} // GetToken()
+
+string ReadNum() {
+  char aChar ;
+  char peekChar ;
+  string token ;
+  token.clear() ;
+
+  peekChar = cin.peek() ;
+
+  if ( peekChar == '.' ) {
+    aChar = cin.get() ; // read '.'
+    token = token + aChar ;
+    peekChar = cin.peek() ;
+    while ( isdigit( peekChar ) ) {
+      aChar = cin.get() ;
+      token = token + aChar ;
+      peekChar = cin.peek() ;
+    } // while
+  } // if
+  else {
+    while ( isdigit( peekChar ) ) {
       aChar = cin.get() ;
       token = token + aChar ;
       peekChar = cin.peek() ;
     } // while
 
     if ( peekChar == '.' ) {
-      token = ReadFloat( token ) ;
+      aChar = cin.get() ; // read '.'
+      token = token + aChar ;
+      peekChar = cin.peek() ;
+      while ( isdigit( peekChar ) ) {
+        aChar = cin.get() ;
+        token = token + aChar ;
+        peekChar = cin.peek() ;
+      } // while
     } // if
-  } // if
-  else {
-    token = SpecialToken( peekChar, token ) ;
+
   } // else
 
+
   return token ;
+} // ReadNum()
 
-} // GetToken()
+string ReadIdent() {
+  char aChar ;
+  char peekChar ;
+  string token ;
+  token.clear() ;
 
-bool UnknowChar( char aChar ) {
-  if ( isalnum( aChar ) || aChar == '_' || aChar == '.' || aChar == '(' || aChar == ')' ||
-       aChar == '+' || aChar == '-' || aChar == '*' || aChar == '/' || aChar == '>' ||
-       aChar == '<' || aChar == ':' || aChar == '=' ) {
-    return false ;
+  peekChar = cin.peek() ;
+  while ( isalnum( peekChar ) || peekChar == '_' ) {
+    aChar = cin.get() ;
+    token = token + aChar ;
+    peekChar = cin.peek() ;
+  } // while
+
+  return token ;
+} // ReadIdent()
+
+string ReadOPAndComment() {
+  char peekChar ;
+  char aChar ;
+  string token ;
+  token.clear() ;
+  peekChar = cin.peek() ;
+
+  if ( peekChar == '+' || peekChar == '-' || peekChar == '*' || peekChar == '(' ||
+       peekChar == ')' || peekChar == ';' || peekChar == '=' ) {
+    aChar = cin.get() ;
+    token = token + aChar ;
+    return token ;
   } // if
-  else return true ;
+  else if ( peekChar == '/' ) {
+    aChar = cin.get() ;
+    token = token + aChar ;
+    peekChar = cin.peek() ;
+    if ( peekChar == '/' ) {
+      char commit[500] ; // 註解
+      cin.getline( commit, 500 ) ;
+      token = GetToken() ;
+    } // if comment
 
-  return true ;
-} // UnknowChar()
+    return token ;
+  } // else if
+  else if ( peekChar == ':' ) {
+    aChar = cin.get() ;
+    token = token + aChar ;
+    peekChar = cin.peek() ;
+    if ( peekChar == '=' ) {
+      aChar = cin.get() ;
+      token = token + aChar ;
+    } // if
+
+    return token ;
+  } // else if
+  else if ( peekChar == '>' || peekChar == '<' ) {
+    aChar = cin.get() ;
+    token = token + aChar ;
+    if ( aChar == '>' ) {
+      peekChar = cin.peek() ;
+      if ( peekChar == '=' ) {
+        aChar = cin.get() ;
+        token = token + aChar ;
+      } // if
+    } // if
+    else if ( aChar == '<' ) {
+      peekChar = cin.peek() ;
+      if ( peekChar == '=' || peekChar == '>' ) {
+        aChar = cin.get() ;
+        token = token + aChar ;
+      } // if
+    } // else if
+
+    return token ;
+  } // else if
+  else {
+    cout << "READ " ;
+    throw  ERROR ;
+  } // else
+
+
+} // ReadOPAndComment()
 
 void SkipExitChar() {
-
   char aChar ;
   char exitChar ;
   aChar = cin.peek() ;
 
   if ( aChar != ' ' && aChar != '\n' && aChar != '\0' && aChar != '\t' ) {
-
     return ;
   } // if
   else {
@@ -157,31 +282,9 @@ void SkipExitChar() {
       aChar = cin.peek() ;
     } // while
 
-
   } // else
 
 } // SkipExitChar()
-
-bool StopRead( char aChar ) {
-
-  if ( aChar == '+' || aChar == '-' || aChar == '*' || aChar == '/'
-       || aChar == ';' || aChar == '>' || aChar == '<' || aChar == ':'
-       || aChar == ' ' || aChar == '\n' || aChar == '\0' || aChar == '\t'
-       || aChar == ')' || aChar == '(' || aChar == '.' || aChar == '=' ) {
-    return true ;
-  } // if
-  else {
-    if ( isalnum( aChar ) || aChar == '_' ) {
-      return false ;
-    } // if a~z || A~Z || 0~9 || _
-
-    gUnknowChar = aChar ;
-    throw UNRECOGNIZED ;
-  } // else
-
-  return false ;
-
-} // StopRead()
 
 void InitializeToken() {
   gNowToken.clear() ;
@@ -194,75 +297,9 @@ void InitializeState() {
   gIsFloat = false ;
   gQuit = false ;
   gIsBoolOP = false ;
+  gChange = false ;
   gUnknowChar = '\0' ;
 } // InitializeState()
-
-string SpecialToken( char aChar, string Token ) {
-  char commit[500] ; // 註解
-  char peekChar ;
-  if ( aChar == '+' || aChar == '-' || aChar == '*' || aChar == '/'
-       || aChar == '(' || aChar == ')' ) {
-    aChar = cin.get() ;
-    if ( aChar == '/' ) {
-      Token = Token + aChar ;
-      peekChar = cin.peek() ;
-      if ( peekChar == '/' ) {
-        peekChar = cin.get() ;
-        cin.getline( commit, 500 ) ;
-        Token = GetToken() ;
-      } // if 註解
-    } // if
-    else {
-      Token = Token + aChar ;
-    } // else
-  } // if +-*/ && 註解
-  else if ( aChar == ';' || aChar == '>' || aChar == '<' || aChar == '=' || aChar == ':' ) {
-    aChar = cin.get() ;
-    Token = Token + aChar ;
-    if ( aChar == '>' || aChar == '<' || aChar == ':' ) {
-      char peekChar ;
-      peekChar = cin.peek() ;
-      if ( peekChar == '=' ) {
-        peekChar = cin.get() ;
-        Token = Token + peekChar ;
-      } // if case: >= <= :=
-
-      if ( aChar == '<' && peekChar == '>' ) {
-        peekChar = cin.get() ;
-        Token = Token + peekChar ;
-      } // if case : <> ( not equal )
-
-    } // if
-  } // else if boolean && ;
-  else if ( aChar == '.' ) {
-    aChar = cin.get() ;
-    Token = Token + aChar ;
-    peekChar = cin.peek() ;
-    for ( int i = 1; isdigit( peekChar ) ; i++ ) {
-      aChar = cin.get() ;
-      Token = Token + aChar ;
-      peekChar = cin.peek() ;
-    } // for
-  } // else if
-
-  return Token ;
-
-} // SpecialToken()
-
-string ReadFloat( string Token ) {
-  char aChar ;
-  char peekChar ;
-  aChar = cin.get() ; // read '.'
-  Token = Token + aChar ;
-  peekChar = cin.peek() ;
-  while ( isdigit( peekChar ) ) {
-    aChar = cin.get() ;
-    Token = Token + aChar ;
-    peekChar = cin.peek() ;
-  } // while
-
-  return Token ;
-} // ReadFloat()
 
 bool IsQuit( string Token ) {
   if ( Token == "quit" ) {
@@ -273,7 +310,7 @@ bool IsQuit( string Token ) {
   return false ;
 } // IsQuit()
 
-void output_ans( double ans ) {
+void Output_ans( double ans ) {
 
   if ( !gIsBoolOP ) {
     if ( gIsFloat ) {
@@ -290,7 +327,37 @@ void output_ans( double ans ) {
     cout << gBoolAns << endl ;
   } // else
 
-} // output_ans()
+} // Output_ans()
+
+void Update_define( string id_name, double value ) {
+  for ( int i = 0 ; i < gId.size() ; i++ ) {
+    if ( gId[i].identify_Name == id_name ) {
+      gId[i].identify_value = value ;
+
+      if ( gIsFloat ) {
+        gId[i].isFloat = true ;
+      } // if
+      else {
+        gId[i].isFloat = false ;
+      } // else
+
+      return ;
+    } // if vector has this var
+  } // for
+
+  Identify_Data tmp ;
+  tmp.identify_Name = id_name ;
+  tmp.identify_value = value ;
+  if ( gIsFloat ) {
+    tmp.isFloat = true ;
+  } // if
+  else {
+    tmp.isFloat = false ;
+  } // else
+
+  gId.push_back( tmp ) ;
+
+} // Update_define()
 
 void Command() {
   cout << "> " ;
@@ -316,7 +383,8 @@ void Command() {
 
       if ( gNowToken == ";" ) {
         TakeToken() ; // take ";"
-        output_ans( return_ans ) ;
+        Update_define( id_name, return_ans ) ;
+        Output_ans( return_ans ) ;
       } // if
       else {
         throw UNEXPECTED ;
@@ -324,30 +392,22 @@ void Command() {
 
     } // if ':=' <ArithExp>
     else {
-      int ident_index = JudgeDefine() ;
-      double return_ans = IDlessArithExpOrBexp() ;
+      double return_ans = IDlessArithExpOrBexp( id_name ) ;
+
       if ( gNowToken.empty() ) {
         gNowToken = GetToken() ; // get ";"
       } // if
 
       if ( gNowToken == ";" ) {
         TakeToken() ; // take ";"
-        if ( !gIsBoolOP ) {
+        if ( !gChange ) {
+          int ident_index = JudgeDefine( id_name, false ) ;
+          if ( gId[ident_index].isFloat ) gIsFloat = true ;
 
-          if ( gIsFloat ) {
-            if ( return_ans > -0.001 && return_ans < 0 )
-              cout << fixed << setprecision( 3 ) << "0.000" << endl ;
-            else
-              cout << fixed << setprecision( 3 ) << return_ans << endl ;
-          } // if
-          else {
-            cout << ( int ) return_ans << endl ;
-          } // else
-
+          return_ans = gId[ident_index].identify_value ;
         } // if
-        else {
-          cout << gBoolAns << endl ;
-        } // else
+
+        Output_ans( return_ans ) ;
       } // if
       else {
         throw UNEXPECTED ;
@@ -365,22 +425,7 @@ void Command() {
 
     if ( gNowToken == ";" ) {
       TakeToken() ; // take ";"
-      if ( !gIsBoolOP ) {
-
-        if ( gIsFloat ) {
-          if ( return_ans > -0.001 && return_ans < 0 )
-            cout << fixed << setprecision( 3 ) << "0.000" << endl ;
-          else
-            cout << fixed << setprecision( 3 ) << return_ans << endl ;
-        } // if
-        else {
-          cout << ( int ) return_ans << endl ;
-        } // else
-
-      } // if
-      else {
-        cout << gBoolAns << endl ;
-      } // else
+      Output_ans( return_ans ) ;
     } // if
     else {
       throw UNEXPECTED ;
@@ -459,19 +504,25 @@ bool JudgeFloat( string Token ) {
   return false ;
 } // JudgeFloat()
 
-int JudgeDefine() {
+int JudgeDefine( string id_name, bool take ) {
 
   for ( int i = 0 ; i < gId.size() ; i++ ) {
-    if ( gId[i].identify_Name == gNowToken ) {
+    if ( gId[i].identify_Name == id_name ) {
       if ( gId[i].isFloat ) {
         gIsFloat = true ;
       } // if
 
-      TakeToken() ; // take IDENT
+      if ( take ) {
+        TakeToken() ; // take IDENT
+      } // if
+
       return i ;
     } // if vector has this var
   } // for
 
+  if ( !take ) {
+    gNowToken = id_name ;
+  } // if
 
   throw UNDEFINED ;
   return 0 ;
@@ -547,8 +598,117 @@ double NOT_ID_StartArithExpOrBexp() {
 
 } // NOT_ID_StartArithExpOrBexp()
 
-double IDlessArithExpOrBexp() {
-  return 0 ;
+double IDlessArithExpOrBexp( string id_name ) {
+  double return_ans ;
+
+  if ( gNowToken.empty() ) {
+    gNowToken = GetToken() ;
+  } // if
+
+  if ( gNowToken == "+" || gNowToken == "-" ||
+       gNowToken == "*" || gNowToken == "/" ) {
+
+    gChange = true ;
+    int ident_index = JudgeDefine( id_name, false ) ;
+    if ( gId[ident_index].isFloat ) gIsFloat = true ;
+
+    return_ans = gId[ident_index].identify_value ;
+
+    while ( gNowToken == "+" || gNowToken == "-" ||
+            gNowToken == "*" || gNowToken == "/" ) {
+
+      string four = gNowToken ;
+      TakeToken() ; // take * or /
+
+      if ( four == "*" ) {
+        double factor_return = Factor() ;
+        return_ans *= factor_return ;
+
+        if ( !gIsFloat ) {
+          return_ans = ( int ) return_ans ;
+        } // if
+
+      } // if '*' <Factor>
+      else if ( four == "/" ) {
+        double factor_return = Factor() ;
+        if ( factor_return == 0 ) {
+          throw ERROR ;
+        } // if Don't /0
+
+        return_ans /= factor_return ;
+
+        if ( !gIsFloat ) {
+          return_ans = ( int ) return_ans ;
+        } // if
+
+      } // else if '/' <Factor>
+      else if ( four == "+" ) {
+        double term_return = Term() ;
+        return_ans += term_return ;
+      } // if '+' <Term>
+      else if ( four == "-" ) {
+        double term_return = Term() ;
+        return_ans -= term_return ;
+      } // else if '-' <Term>
+
+      if ( gNowToken.empty() ) {
+        gNowToken = GetToken();
+      } // if
+
+    } // while
+
+    return return_ans ;
+  } // if
+
+  if ( gNowToken.empty() ) {
+    gNowToken = GetToken() ;
+  } // if
+
+  string boolOperator = BooleanOprator() ;
+  if ( boolOperator != "Not_boolOP" ) {
+    gChange = true ;
+    int ident_index = JudgeDefine( id_name, false ) ;
+    if ( gId[ident_index].isFloat ) gIsFloat = true ;
+
+    return_ans = gId[ident_index].identify_value ;
+    double arithexp_return = ArithExp() ;
+    gIsBoolOP = true ;
+
+    if ( ( ( return_ans - arithexp_return ) <= 0.00011 && ( return_ans > arithexp_return ) ) ||
+         ( ( arithexp_return - return_ans ) <= 0.00011 && ( arithexp_return > return_ans ) )  ) {
+
+      return_ans = arithexp_return ;
+
+    } // if
+
+    if ( boolOperator == "=" ) {
+      if ( return_ans == arithexp_return ) gBoolAns = "true"  ;
+      else gBoolAns = "false" ;
+    } // if "="
+    else if ( boolOperator == "<>" ) {
+      if ( return_ans != arithexp_return ) gBoolAns = "true" ;
+      else gBoolAns = "false" ;
+    } // else if "<>"
+    else if ( boolOperator == ">" ) {
+      if ( return_ans > arithexp_return ) gBoolAns = "true" ;
+      else gBoolAns = "false" ;
+    } // else if ">"
+    else if ( boolOperator == "<" ) {
+      if ( return_ans < arithexp_return ) gBoolAns = "true" ;
+      else gBoolAns = "false" ;
+    } // else if "<"
+    else if ( boolOperator == ">=" ) {
+      if ( return_ans >= arithexp_return ) gBoolAns = "true" ;
+      else gBoolAns = "false" ;
+    } // else if ">="
+    else if ( boolOperator == "<=" ) {
+      if ( return_ans <= arithexp_return ) gBoolAns = "true" ;
+      else gBoolAns = "false" ;
+    } // else if "<="
+
+  } // if [ <BooleanOperator> <ArithExp> ]
+
+  return return_ans ;
 } // IDlessArithExpOrBexp()
 
 string BooleanOprator() {
@@ -809,7 +969,7 @@ double Factor() {
   } // if
 
   if ( JudgeIDENT( gNowToken ) ) {
-    int ident_index = JudgeDefine() ;
+    int ident_index = JudgeDefine( gNowToken, true ) ;
     if ( gId[ident_index].isFloat ) gIsFloat = true ;
 
     return gId[ident_index].identify_value ;
