@@ -657,7 +657,6 @@ double IDlessArithExpOrBexp( string id_name ) {
 
     } // while
 
-    return return_ans ;
   } // if
 
   if ( gNowToken.empty() ) {
@@ -666,11 +665,14 @@ double IDlessArithExpOrBexp( string id_name ) {
 
   string boolOperator = BooleanOprator() ;
   if ( boolOperator != "Not_boolOP" ) {
-    gChange = true ;
-    int ident_index = JudgeDefine( id_name, false ) ;
-    if ( gId[ident_index].isFloat ) gIsFloat = true ;
+    if ( !gChange ) {
+      int ident_index = JudgeDefine( id_name, false ) ;
+      if ( gId[ident_index].isFloat ) gIsFloat = true ;
 
-    return_ans = gId[ident_index].identify_value ;
+      return_ans = gId[ident_index].identify_value ;
+    } // if
+
+    gChange = true ;
     double arithexp_return = ArithExp() ;
     gIsBoolOP = true ;
 
